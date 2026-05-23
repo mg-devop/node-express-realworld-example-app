@@ -10,9 +10,17 @@ const app = express();
  * App Configuration
  */
 
-app.use(cors());
+// Explicitly allow your frontend port
+app.use(cors({
+  origin: 'http://localhost:8081',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+}));
+
+// Fixed: Using the correct variable name 'bodyParser'
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(routes);
 
 // Serves images

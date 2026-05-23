@@ -11,8 +11,8 @@ const buildFindAllQuery = (query: any, id: number | undefined) => {
   const andAuthorQuery = [];
 
   orAuthorQuery.push({
-    demo: {
-      equals: true,
+    bio: {
+      equals: query.bio,
     },
   });
 

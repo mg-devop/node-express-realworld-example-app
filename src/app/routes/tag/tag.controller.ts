@@ -12,7 +12,7 @@ const router = Router();
  */
 router.get('/tags', auth.optional, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tags = await getTags(req.auth?.user?.id);
+    const tags = await getTags.getTags(req.auth?.user?.id);
     res.json({ tags });
   } catch (error) {
     next(error);
