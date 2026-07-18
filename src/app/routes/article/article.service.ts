@@ -414,7 +414,8 @@ export const deleteArticle = async (slug: string, id: number) => {
 };
 
 export const getCommentsByArticle = async (slug: string, id?: number) => {
-  const whereClause: any = id ? { author: { id } } : {};
+  // If an id exists, filter comments by that author; otherwise, return all comments.
+  const commentFilter = id ? { author: { id } } : undefined;
 
   const comments = await prisma.article.findUnique({
     where: {
@@ -422,7 +423,7 @@ export const getCommentsByArticle = async (slug: string, id?: number) => {
     },
     include: {
       comments: {
-        where: whereClause,
+        where: commentFilter,
         select: {
           id: true,
           createdAt: true,
@@ -441,13 +442,18 @@ export const getCommentsByArticle = async (slug: string, id?: number) => {
     },
   });
 
-  const result = comments?.comments.map((comment: any) => ({
+  // Return an empty array if the article or comments don't exist
+  if (!comments || !comments.comments) {
+    return [];
+  }
+
+  const result = comments.comments.map((comment: any) => ({
     ...comment,
     author: {
       username: comment.author.username,
       bio: comment.author.bio,
       image: comment.author.image,
-      following: comment.author.followedBy.some((follow: any) => follow.id === id),
+      following: id ? comment.author.followedBy.some((follow: any) => follow.id === id) : false,
     },
   }));
 
