@@ -414,21 +414,7 @@ export const deleteArticle = async (slug: string, id: number) => {
 };
 
 export const getCommentsByArticle = async (slug: string, id?: number) => {
-  const queries = [];
-
-  queries.push({
-    author: {
-      demo: true,
-    },
-  });
-
-  if (id) {
-    queries.push({
-      author: {
-        id,
-      },
-    });
-  }
+  const whereClause: any = id ? { author: { id } } : {};
 
   const comments = await prisma.article.findUnique({
     where: {
