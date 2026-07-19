@@ -1,103 +1,135 @@
+import * as bcrypt from 'bcryptjs';
+import { RegisterInput } from './register-input.model';
 import prisma from '../../../prisma/prisma-client';
-import { ArticleInput } from './article-input.model';
 import HttpException from '../../models/http-exception.model';
+import { RegisteredUser } from './registered-user.model';
+import generateToken from './token.utils';
 import profileMapper from '../profile/profile.utils';
 
-export const listArticles = async (userId: number | null, query: any) => {
-  const articles = await prisma.article.findMany({
-    include: {
-      author: { include: { followedBy: true } },
-      favorites: true,
-    },
-    orderBy: { createdAt: 'desc' },
+const checkUserUniqueness = async (email: string, username: string) => {
+  const existingUserByEmail = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
   });
 
-  return articles.map((article) => ({
-    ...article,
-    author: profileMapper(article.author, userId),
-    favorited: article.favorites.some((f) => f.userId === userId),
-    favoritesCount: article.favorites.length,
-  }));
-};
-
-export const getArticle = async (slug: string, userId: number | null) => {
-  const article = await prisma.article.findUnique({
-    where: { slug },
-    include: {
-      author: { include: { followedBy: true } },
-      favorites: true,
-    },
+  const existingUserByUsername = await prisma.user.findUnique({
+    where: { username },
+    select: { id: true },
   });
 
-  if (!article) throw new HttpException(404, { errors: { article: ['not found'] } });
-
-  return {
-    ...article,
-    author: profileMapper(article.author, userId),
-    favorited: article.favorites.some((f) => f.userId === userId),
-    favoritesCount: article.favorites.length,
-  };
+  if (existingUserByEmail || existingUserByUsername) {
+    throw new HttpException(422, {
+      errors: {
+        ...(existingUserByEmail ? { email: ['has already been taken'] } : {}),
+        ...(existingUserByUsername ? { username: ['has already been taken'] } : {}),
+      },
+    });
+  }
 };
 
-export const createArticle = async (input: ArticleInput, authorId: number) => {
-  const article = await prisma.article.create({
+export const createUser = async (input: RegisterInput): Promise<RegisteredUser> => {
+  const email = input.email?.trim();
+  const username = input.username?.trim();
+  const password = input.password?.trim();
+  const { image, bio, demo } = input;
+
+  if (!email || !username || !password) {
+    throw new HttpException(422, { errors: { field: ["can't be blank"] } });
+  }
+
+  await checkUserUniqueness(email, username);
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = await prisma.user.create({
     data: {
-      title: input.title,
-      description: input.description,
-      body: input.body,
-      slug: input.title.toLowerCase().replace(/ /g, '-'),
-      authorId,
+      username,
+      email,
+      password: hashedPassword,
+      ...(image ? { image } : {}),
+      ...(bio ? { bio } : {}),
+      ...(demo ? { demo } : {}),
     },
-    include: {
-      author: { include: { followedBy: true } },
-    },
+    include: { followedBy: true },
   });
 
   return {
-    ...article,
-    author: profileMapper(article.author, authorId),
+    id: user.id,
+    email: user.email,
+    ...profileMapper(user, user.id),
+    token: generateToken(user.id),
   };
 };
 
-export const updateArticle = async (slug: string, input: ArticleInput, authorId: number) => {
-  const article = await prisma.article.update({
-    where: { slug },
+export const login = async (userPayload: any) => {
+  const email = userPayload.email?.trim();
+  const password = userPayload.password?.trim();
+
+  if (!email || !password) {
+    throw new HttpException(422, { errors: { field: ["can't be blank"] } });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { followedBy: true },
+  });
+
+  if (user) {
+    const match = await bcrypt.compare(password, user.password);
+    if (match) {
+      return {
+        id: user.id,
+        email: user.email,
+        ...profileMapper(user, user.id),
+        token: generateToken(user.id),
+      };
+    }
+  }
+
+  throw new HttpException(403, {
+    errors: { 'email or password': ['is invalid'] },
+  });
+};
+
+export const getCurrentUser = async (id: number) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: { followedBy: true },
+  });
+
+  if (!user) throw new HttpException(404, { errors: { user: ['not found'] } });
+
+  return {
+    id: user.id,
+    email: user.email,
+    ...profileMapper(user, id),
+    token: generateToken(user.id),
+  };
+};
+
+export const updateUser = async (userPayload: any, id: number) => {
+  const { email, username, password, image, bio } = userPayload;
+  let hashedPassword;
+
+  if (password) {
+    hashedPassword = await bcrypt.hash(password, 10);
+  }
+
+  const user = await prisma.user.update({
+    where: { id },
     data: {
-      title: input.title,
-      description: input.description,
-      body: input.body,
+      ...(email ? { email } : {}),
+      ...(username ? { username } : {}),
+      ...(password ? { password: hashedPassword } : {}),
+      ...(image ? { image } : {}),
+      ...(bio ? { bio } : {}),
     },
-    include: {
-      author: { include: { followedBy: true } },
-    },
+    include: { followedBy: true },
   });
 
   return {
-    ...article,
-    author: profileMapper(article.author, authorId),
+    id: user.id,
+    email: user.email,
+    ...profileMapper(user, id),
+    token: generateToken(user.id),
   };
-};
-
-export const deleteArticle = async (slug: string) => {
-  await prisma.article.delete({ where: { slug } });
-};
-
-export const favoriteArticle = async (slug: string, userId: number) => {
-  await prisma.favorite.create({
-    data: {
-      userId,
-      article: { connect: { slug } },
-    },
-  });
-  return getArticle(slug, userId);
-};
-
-export const unfavoriteArticle = async (slug: string, userId: number) => {
-  await prisma.favorite.deleteMany({
-    where: {
-      userId,
-      article: { slug },
-    },
-  });
-  return getArticle(slug, userId);
 };
