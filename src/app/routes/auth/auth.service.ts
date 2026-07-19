@@ -5,6 +5,7 @@ import HttpException from '../../models/http-exception.model';
 import { RegisteredUser } from './registered-user.model';
 import generateToken from './token.utils';
 import { User } from './user.model';
+import profileMapper from '../profile/profile.utils'; // Added import
 
 const checkUserUniqueness = async (email: string, username: string) => {
   const existingUserByEmail = await prisma.user.findUnique({
@@ -72,11 +73,12 @@ export const createUser = async (input: RegisterInput): Promise<RegisteredUser> 
       username: true,
       bio: true,
       image: true,
+      followedBy: true, // Needed for mapper
     },
   });
 
   return {
-    ...user,
+    ...profileMapper(user, user.id), // Use mapper
     token: generateToken(user.id),
   };
 };
@@ -97,14 +99,9 @@ export const login = async (userPayload: any) => {
     where: {
       email,
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      password: true,
-      bio: true,
-      image: true,
-    },
+    include: {
+      followedBy: true, // Needed for mapper
+    }
   });
 
   if (user) {
@@ -112,10 +109,7 @@ export const login = async (userPayload: any) => {
 
     if (match) {
       return {
-        email: user.email,
-        username: user.username,
-        bio: user.bio,
-        image: user.image,
+        ...profileMapper(user, user.id), // Use mapper
         token: generateToken(user.id),
       };
     }
@@ -129,21 +123,19 @@ export const login = async (userPayload: any) => {
 };
 
 export const getCurrentUser = async (id: number) => {
-  const user = (await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: {
       id,
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      bio: true,
-      image: true,
-    },
-  })) as User;
+    include: {
+      followedBy: true, // Needed for mapper
+    }
+  });
+
+  if (!user) throw new HttpException(404, { errors: { user: ['not found'] } });
 
   return {
-    ...user,
+    ...profileMapper(user, id), // Use mapper
     token: generateToken(user.id),
   };
 };
@@ -167,17 +159,13 @@ export const updateUser = async (userPayload: any, id: number) => {
       ...(image ? { image } : {}),
       ...(bio ? { bio } : {}),
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      bio: true,
-      image: true,
-    },
+    include: {
+        followedBy: true, // Needed for mapper
+    }
   });
 
   return {
-    ...user,
+    ...profileMapper(user, id), // Use mapper
     token: generateToken(user.id),
   };
 };
