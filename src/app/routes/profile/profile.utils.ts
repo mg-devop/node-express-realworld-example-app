@@ -6,7 +6,7 @@ const profileMapper = (user: any, id?: number) => {
     username: user.username,
     bio: user.bio,
     // Add this fallback logic:
-    image: user.image || '/assets/images/smiley-cyrus.jpeg',
+    image: user.image || `https://ui-avatars.com/api/?name=${user.username}&size=64&background=random`,
     following: id ? user.followedBy.some((follow: any) => follow.id === id) : false,
   };
 };
