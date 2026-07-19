@@ -54,6 +54,8 @@ export const createUser = async (input: RegisterInput): Promise<RegisteredUser> 
   });
 
   return {
+    id: user.id,
+    email: user.email,
     ...profileMapper(user, user.id),
     token: generateToken(user.id),
   };
@@ -76,6 +78,8 @@ export const login = async (userPayload: any) => {
     const match = await bcrypt.compare(password, user.password);
     if (match) {
       return {
+        id: user.id,
+        email: user.email,
         ...profileMapper(user, user.id),
         token: generateToken(user.id),
       };
@@ -96,6 +100,8 @@ export const getCurrentUser = async (id: number) => {
   if (!user) throw new HttpException(404, { errors: { user: ['not found'] } });
 
   return {
+    id: user.id,
+    email: user.email,
     ...profileMapper(user, id),
     token: generateToken(user.id),
   };
@@ -122,6 +128,8 @@ export const updateUser = async (userPayload: any, id: number) => {
   });
 
   return {
+    id: user.id,
+    email: user.email,
     ...profileMapper(user, id),
     token: generateToken(user.id),
   };
