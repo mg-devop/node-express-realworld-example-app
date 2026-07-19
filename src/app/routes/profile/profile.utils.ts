@@ -6,7 +6,7 @@ const profileMapper = (user: any, id?: number) => {
     username: user.username,
     bio: user.bio,
     // Add this fallback logic:
-    image: user.image || 'https://static.productionready.io/images/smiley-cyrus.jpg',
+    image: user.image || 'https://api.realworld.io/images/smiley-cyrus.jpeg',
     following: id ? user.followedBy.some((follow: any) => follow.id === id) : false,
   };
 };
