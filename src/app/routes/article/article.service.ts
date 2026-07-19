@@ -289,7 +289,7 @@ const disconnectArticlesTags = async (slug: string) => {
 export const updateArticle = async (article: any, slug: string, id: number) => {
   let newSlug = null;
 
-  const existingArticle = await await prisma.article.findFirst({
+  const existingArticle = await prisma.article.findFirst({
     where: {
       slug,
     },
@@ -383,7 +383,7 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
 };
 
 export const deleteArticle = async (slug: string, id: number) => {
-  const existingArticle = await await prisma.article.findFirst({
+  const existingArticle = await prisma.article.findFirst({
     where: {
       slug,
     },
@@ -414,7 +414,6 @@ export const deleteArticle = async (slug: string, id: number) => {
 };
 
 export const getCommentsByArticle = async (slug: string, id?: number) => {
-  // If an id exists, filter comments by that author; otherwise, return all comments.
   const commentFilter = id ? { author: { id } } : undefined;
 
   const comments = await prisma.article.findUnique({
@@ -442,19 +441,14 @@ export const getCommentsByArticle = async (slug: string, id?: number) => {
     },
   });
 
-  // Return an empty array if the article or comments don't exist
   if (!comments || !comments.comments) {
     return [];
   }
 
   const result = comments.comments.map((comment: any) => ({
     ...comment,
-    author: {
-      username: comment.author.username,
-      bio: comment.author.bio,
-      image: comment.author.image,
-      following: id ? comment.author.followedBy.some((follow: any) => follow.id === id) : false,
-    },
+    // FIX: Using profileMapper ensures the image fallback logic is used
+    author: profileMapper(comment.author, id), 
   }));
 
   return result;
@@ -505,12 +499,8 @@ export const addComment = async (body: string, slug: string, id: number) => {
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
     body: comment.body,
-    author: {
-      username: comment.author.username,
-      bio: comment.author.bio,
-      image: comment.author.image,
-      following: comment.author.followedBy.some((follow: any) => follow.id === id),
-    },
+    // FIX: Using profileMapper ensures the image fallback logic is used
+    author: profileMapper(comment.author, id),
   };
 };
 
